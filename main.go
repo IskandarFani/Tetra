@@ -1,23 +1,14 @@
 package main
 
 import (
-	"log"
-
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 )
 
 func main() {
-	// Fiber instance
+
 	app := fiber.New()
 
-	// Routes
-	app.Get("/", hello)
+	startRoutingApp(app)
 
-	// Start server
-	log.Fatal(app.Listen(":3000"))
-}
-
-// Handler
-func hello(c *fiber.Ctx) error {
-	return c.SendString("Hello, World 👋!")
+	app.Listen(":3000")
 }
