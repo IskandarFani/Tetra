@@ -1,13 +1,23 @@
 package database
 
 import (
+	"fmt"
+	"os"
+
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
 func Connect() (*gorm.DB, error) {
-
-	dsn := "host=127.0.0.1 port=5432 user=database_user password=database_password dbname=database_name sslmode=disable" //err
+	dsn := fmt.Sprintf(
+		"host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
+		os.Getenv("DB_HOST"),
+		os.Getenv("DB_PORT"),
+		os.Getenv("DB_USER"),
+		os.Getenv("DB_PASSWORD"),
+		os.Getenv("DB_NAME"),
+		os.Getenv("DB_SSLMODE"),
+	)
 
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 
@@ -16,5 +26,4 @@ func Connect() (*gorm.DB, error) {
 	}
 
 	return db, nil
-
 }
