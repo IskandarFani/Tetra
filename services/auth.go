@@ -1,20 +1,16 @@
 package services
 
 import (
-	"errors"
 	"fmt"
 )
 
-func (servStruct *Services) AddNewUser(userName string) (string, error) {
+func (serv *Services) SubmitTrialAccessRequest(userEmail string) (string, error) {
 
-	runesName := []rune(userName)
-	nameLength := len(runesName)
+	successMsg := fmt.Sprintf("A request has been sent to %s to confirm your email address", userEmail)
 
-	if nameLength > 7 {
-		return "", errors.New("name length must be 7 characters or less")
+	if _, err := serv.repo.SubmitTrialAccessRequest(userEmail); err != nil {
+		return "", err
 	}
 
-	newUserName := fmt.Sprintf("%s%d", userName, nameLength)
-
-	return servStruct.repo.AddNewUser(newUserName)
+	return successMsg, nil
 }

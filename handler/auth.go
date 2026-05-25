@@ -4,31 +4,28 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-type NewUserStruct struct {
-	Name string `json:"name"`
+type TrialAccessRequest struct {
+	Email string `json:"email"`
 }
 
-func (handlerStruct *Handler) AddNewUser(ctxStruct *fiber.Ctx) error {
+func (h *Handler) SubmitTrialAccessRequest(c *fiber.Ctx) error {
 
-	newUserNameRequestStruct := new(NewUserStruct)
-	err := ctxStruct.BodyParser(newUserNameRequestStruct)
+	var request TrialAccessRequest
+
+	if err := c.BodyParser(&request); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
+	}
+
+	successMsg, err := h.serv.SubmitTrialAccessRequest(request.Email)
 
 	if err != nil {
-		return ctxStruct.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"status":  "error",
 			"message": err.Error()})
 	}
 
-	newUserName, errWithCreatingUser := handlerStruct.serv.AddNewUser(newUserNameRequestStruct.Name)
-
-	if errWithCreatingUser != nil {
-		return ctxStruct.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"status":  "error",
-			"message": errWithCreatingUser.Error()})
-	}
-
-	return ctxStruct.Status(fiber.StatusOK).JSON(fiber.Map{
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"status":  "success",
-		"message": newUserName})
+		"message": successMsg})
 
 }

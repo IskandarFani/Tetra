@@ -33,6 +33,6 @@ func main() {
 
 	startRoutingApp(app, handler)
 
-	//3000 не использовать, для фронтэнда
+	// Port 3000 is reserved for the frontend.
 	app.Listen(":8080")
 }
