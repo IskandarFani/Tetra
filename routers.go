@@ -23,5 +23,10 @@ func startRoutingApp(app *fiber.App, h *handler.Handler) {
 
 	app.Get("/monitor", monitor.New())
 	app.Get("/checkdb", h.CheckDB)
-	app.Post("/trial-access", h.SubmitTrialAccessRequest)
+	app.Get("/auth/profile", h.Profile)
+
+	app.Post("/auth/register", h.Register)
+	app.Post("/auth/login", h.LogIn)
+	app.Post("/auth/refresh", h.RefreshToken)
+
 }

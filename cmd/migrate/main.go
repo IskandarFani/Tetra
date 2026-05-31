@@ -19,7 +19,11 @@ func main() {
 		log.Fatal(err)
 	}
 
-	err = db.AutoMigrate(&models.TrialRequest{})
+	err = db.AutoMigrate(
+		&models.User{},
+		&models.RefreshToken{},
+	)
+
 	if err != nil {
 		log.Fatal(err)
 	}
