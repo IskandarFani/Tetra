@@ -1,0 +1,28 @@
+name: Deploy Backend
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy backend over SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            set -e
+            cd /root/Tetra
+            git pull --ff-only origin main
+            /usr/local/go/bin/go mod download
+            /usr/local/go/bin/go build -o tetra-backend.new .
+            mv tetra-backend.new tetra-backend
+            chmod +x tetra-backend
+            systemctl restart tetra-backend.service
+            systemctl is-active tetra-backend.service
