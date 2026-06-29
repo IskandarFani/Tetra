@@ -23,10 +23,15 @@ func startRoutingApp(app *fiber.App, h *handler.Handler) {
 
 	app.Get("/monitor", monitor.New())
 	app.Get("/checkdb", h.CheckDB)
-	app.Get("/auth/profile", h.Profile)
 
-	app.Post("/auth/register", h.Register)
-	app.Post("/auth/login", h.LogIn)
-	app.Post("/auth/refresh", h.RefreshToken)
+	auth := app.Group("/auth")
+
+	auth.Post("/register", h.Register)
+	auth.Post("/login", h.LogIn)
+	auth.Post("/refresh", h.ReadRefreshToken, h.RefreshToken)
+
+	api := app.Group("/api")
+
+	api.Get("/profile", h.ReadToken, h.Profile)
 
 }

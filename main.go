@@ -27,8 +27,14 @@ func main() {
 		log.Fatal(err)
 	}
 
+	redisClient, err := database.ConnectRedis()
+
+	if err != nil {
+		log.Fatal("Failed to connect to Redis:", err)
+	}
+
 	repo := repository.NewRepository(db)
-	serv := services.NewServices(repo)
+	serv := services.NewServices(repo, redisClient)
 	handler := handler.NewHandler(serv)
 
 	startRoutingApp(app, handler)

@@ -8,6 +8,11 @@ import (
 	"gorm.io/gorm"
 )
 
+type RefreshSession struct {
+	UserID uint
+	Email  string
+}
+
 func (repo *Repository) FindUserByID(userID uint) (string, time.Time, error) {
 
 	var user models.User
@@ -78,7 +83,7 @@ func (repo *Repository) FindUserByEmail(userEmail string) (*models.User, error) 
 
 }
 
-func (repo *Repository) UseRefreshTokenByHash(refreshTokenHash string) (*models.User, error) {
+func (repo *Repository) UseRefreshTokenByHash(refreshTokenHash string) (*RefreshSession, error) {
 
 	var token models.RefreshToken
 
@@ -88,18 +93,28 @@ func (repo *Repository) UseRefreshTokenByHash(refreshTokenHash string) (*models.
 		return nil, err
 	}
 
-	err = repo.db.Where("id = ?", token.UserID).First(&token.User).Error
+	result := repo.db.Model(&token).
+		Where("id = ? AND revoked_at IS NULL", token.ID).
+		Update("revoked_at", time.Now())
+
+	if result.Error != nil {
+		return nil, result.Error
+	}
+
+	if result.RowsAffected == 0 {
+		return nil, errors.New("failed to update refresh token")
+	}
+
+	var user models.User
+	err = repo.db.Where("id = ?", token.UserID).First(&user).Error
 
 	if err != nil {
 		return nil, err
 	}
 
-	err = repo.db.Model(&token).Update("revoked_at", time.Now()).Error
-
-	if err != nil {
-		return nil, err
-	}
-
-	return &token.User, nil
+	return &RefreshSession{
+		UserID: user.ID,
+		Email:  user.Email,
+	}, nil
 
 }

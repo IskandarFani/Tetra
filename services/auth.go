@@ -1,15 +1,25 @@
 package services
 
 import (
+	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
+	"github.com/redis/go-redis/v9"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type AuthTokens struct {
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
+}
+
+type UserProfile struct {
+	ID        uint      `json:"id"`
+	Email     string    `json:"email"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 func (serv *Services) Register(userEmail string, userPassword string) (AuthTokens, error) {
@@ -56,7 +66,7 @@ func (serv *Services) Register(userEmail string, userPassword string) (AuthToken
 		return AuthTokens{}, err
 	}
 
-	refreshToken, refreshTokenHash, err := GenerateRefreshToken()
+	refreshToken, refreshTokenHash, err := serv.GenerateRefreshToken()
 
 	if err != nil {
 		return AuthTokens{}, err
@@ -77,23 +87,37 @@ func (serv *Services) Register(userEmail string, userPassword string) (AuthToken
 
 }
 
-func (serv *Services) RefreshToken(refreshTokenString string) (AuthTokens, error) {
+func (serv *Services) UseRefreshToken(refreshToken string) (uint, string, error) {
 
-	hashToken := HashRefreshToken(refreshTokenString)
+	hashToken := hashRefreshToken(refreshToken)
 
-	userData, err := serv.repo.UseRefreshTokenByHash(hashToken)
+	userID, userEmail, err := serv.useRefreshTokenByHash(hashToken)
+
+	return userID, userEmail, err
+
+}
+
+func (serv *Services) useRefreshTokenByHash(refreshTokenHash string) (uint, string, error) {
+
+	userData, err := serv.repo.UseRefreshTokenByHash(refreshTokenHash)
 
 	if err != nil {
-		return AuthTokens{}, errors.New("invalid refresh token")
+		return 0, "", err
 	}
 
-	accessToken, err := GenerateJWTToken(userData.ID, userData.Email)
+	return userData.UserID, userData.Email, nil
+
+}
+
+func (serv *Services) RefreshToken(usrID uint, usrEmail string) (AuthTokens, error) {
+
+	accessToken, err := GenerateJWTToken(usrID, usrEmail)
 
 	if err != nil {
 		return AuthTokens{}, err
 	}
 
-	refreshToken, refreshTokenHash, err := GenerateRefreshToken()
+	refreshToken, refreshTokenHash, err := serv.GenerateRefreshToken()
 
 	if err != nil {
 		return AuthTokens{}, err
@@ -101,7 +125,7 @@ func (serv *Services) RefreshToken(refreshTokenString string) (AuthTokens, error
 
 	expiresAt := time.Now().Add(30 * time.Hour)
 
-	err = serv.repo.CreateRefreshTokenHashRecord(userData.ID, refreshTokenHash, expiresAt)
+	err = serv.repo.CreateRefreshTokenHashRecord(usrID, refreshTokenHash, expiresAt)
 
 	if err != nil {
 		return AuthTokens{}, err
@@ -142,7 +166,7 @@ func (serv *Services) LogIn(userEmail string, userPassword string) (AuthTokens, 
 		return AuthTokens{}, err
 	}
 
-	refreshToken, refreshTokenHash, err := GenerateRefreshToken()
+	refreshToken, refreshTokenHash, err := serv.GenerateRefreshToken()
 
 	if err != nil {
 		return AuthTokens{}, err
@@ -163,20 +187,66 @@ func (serv *Services) LogIn(userEmail string, userPassword string) (AuthTokens, 
 
 }
 
-func (serv *Services) ParseAccessToken(accessToken string) (uint, string, time.Time, error) {
+func (serv *Services) ParseAccessToken(accessToken string) (uint, error) {
 
 	userID, err := GetUserIDFromJWTToken(accessToken)
 
 	if err != nil {
-		return 0, "", time.Time{}, err
+		return 0, err
+	}
+
+	return userID, nil
+
+}
+
+func (serv *Services) GetUserProfile(userID uint) (UserProfile, error) {
+
+	ctx := context.Background()
+	key := fmt.Sprintf("profile:user:%d", userID)
+
+	cachedProfile, err := serv.redisClient.Get(ctx, key).Result()
+
+	if err == nil {
+
+		var profile UserProfile
+
+		err := json.Unmarshal([]byte(cachedProfile), &profile)
+
+		if err != nil {
+			return UserProfile{}, err
+		}
+
+		return profile, nil
+	}
+
+	if err != redis.Nil {
+		return UserProfile{}, err
 	}
 
 	email, createdAt, err := serv.repo.FindUserByID(userID)
 
 	if err != nil {
-		return 0, "", time.Time{}, err
+		return UserProfile{}, err
 	}
 
-	return userID, email, createdAt, nil
+	profile := UserProfile{
+		ID:        userID,
+		Email:     email,
+		CreatedAt: createdAt,
+	}
+
+	profileJSON, err := json.Marshal(profile)
+
+	if err != nil {
+		return UserProfile{}, err
+	}
+
+	err = serv.redisClient.Set(ctx, key, profileJSON, time.Hour).Err()
+
+	if err != nil {
+		return UserProfile{}, err
+	}
+
+	return profile, nil
 
 }

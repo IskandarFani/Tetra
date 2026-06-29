@@ -59,7 +59,7 @@ func GenerateJWTToken(userID uint, userEmail string) (string, error) {
 
 }
 
-func GenerateRefreshToken() (string, string, error) {
+func (serv *Services) GenerateRefreshToken() (string, string, error) {
 
 	bytes := make([]byte, 64)
 
@@ -70,13 +70,8 @@ func GenerateRefreshToken() (string, string, error) {
 
 	refToken := base64.RawURLEncoding.EncodeToString(bytes)
 
-	return refToken, HashRefreshToken(refToken), nil
+	return refToken, hashRefreshToken(refToken), nil
 
-}
-
-func HashRefreshToken(token string) string {
-	sum := sha256.Sum256([]byte(token))
-	return hex.EncodeToString(sum[:])
 }
 
 func GetUserIDFromJWTToken(accessToken string) (uint, error) {
@@ -122,4 +117,9 @@ func getJWTSecretKey(token *jwt.Token) (interface{}, error) {
 
 	return []byte(secretCode), nil
 
+}
+
+func hashRefreshToken(token string) string {
+	sum := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(sum[:])
 }
