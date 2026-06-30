@@ -22,6 +22,7 @@ func main() {
 	err = db.AutoMigrate(
 		&models.User{},
 		&models.RefreshToken{},
+		&models.File{},
 	)
 
 	if err != nil {

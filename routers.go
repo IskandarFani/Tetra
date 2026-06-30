@@ -34,4 +34,9 @@ func startRoutingApp(app *fiber.App, h *handler.Handler) {
 
 	api.Get("/profile", h.ReadToken, h.Profile)
 
+	api.Get("/files", h.ReadToken, h.GetFiles)
+	api.Post("/files", h.ReadToken, h.UploadFile)
+	api.Get("/files/:id", h.ReadToken, h.DownloadFile)
+	api.Delete("/files/:id", h.ReadToken, h.DeleteFile)
+
 }
