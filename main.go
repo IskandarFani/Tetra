@@ -19,7 +19,9 @@ func main() {
 		log.Println(".env file not found, using system environment variables")
 	}
 
-	app := fiber.New()
+	app := fiber.New(fiber.Config{
+		BodyLimit: 1024 * 1024 * 1024,
+	})
 
 	db, err := database.Connect()
 

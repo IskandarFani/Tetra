@@ -5,29 +5,28 @@ import (
 	"go-cloud/internal/dto"
 	"mime/multipart"
 	"os"
-	"time"
 )
 
-type FileResponse struct {
-	ID           uint      `json:"id"`
-	OriginalName string    `json:"original_name"`
-	MimeType     string    `json:"mime_type"`
-	Size         int64     `json:"size"`
-	CreatedAt    time.Time `json:"created_at"`
-}
+func (serv *Services) GetFiles(userID uint, folderID *uint) ([]dto.FileResponse, error) {
 
-func (serv *Services) GetFiles(userID uint) ([]FileResponse, error) {
+	if folderID != nil {
+		err := serv.repo.CheckFolderExists(userID, *folderID)
 
-	files, err := serv.repo.GetFiles(userID)
-
-	if err != nil {
-		return []FileResponse{}, err
+		if err != nil {
+			return []dto.FileResponse{}, err
+		}
 	}
 
-	filesResponse := []FileResponse{}
+	files, err := serv.repo.GetFiles(userID, folderID)
+
+	if err != nil {
+		return []dto.FileResponse{}, err
+	}
+
+	filesResponse := []dto.FileResponse{}
 
 	for _, file := range files {
-		filesResponse = append(filesResponse, FileResponse{
+		filesResponse = append(filesResponse, dto.FileResponse{
 			ID:           file.ID,
 			OriginalName: file.OriginalName,
 			MimeType:     file.MimeType,
@@ -40,46 +39,59 @@ func (serv *Services) GetFiles(userID uint) ([]FileResponse, error) {
 
 }
 
-func (serv *Services) UploadFile(userID uint, fileHeader *multipart.FileHeader) error {
+func (serv *Services) UploadFile(userID uint, folderID *uint, fileHeader *multipart.FileHeader) (dto.FileResponse, error) {
 
 	const maxFileSize = 1 * 1024 * 1024 * 1024
 
+	emptyFileResponse := dto.FileResponse{}
+
 	if fileHeader.Size <= 0 {
-		return errors.New("file is empty")
+		return emptyFileResponse, errors.New("file is empty")
 	}
 
 	if fileHeader.Size > maxFileSize {
-		return errors.New("file is too large")
+		return emptyFileResponse, errors.New("file is too large")
+	}
+
+	if folderID != nil {
+
+		err := serv.repo.CheckFolderExists(userID, *folderID)
+
+		if err != nil {
+			return emptyFileResponse, err
+		}
+
 	}
 
 	userDir, err := getUserDir(userID, true)
 
 	if err != nil {
-		return err
+		return emptyFileResponse, err
 	}
 
 	storageName, storagePath, err := saveFile(userDir, fileHeader)
 
 	if err != nil {
-		return err
+		return emptyFileResponse, err
 	}
 
 	input := dto.CreateFileInput{
 		UserID:       userID,
+		FolderID:     folderID,
 		OriginalName: fileHeader.Filename,
 		StorageName:  storageName,
 		MimeType:     fileHeader.Header.Get("Content-Type"),
 		Size:         fileHeader.Size,
 	}
 
-	err = serv.repo.CreateFile(input)
+	file, err := serv.repo.CreateFile(input)
 
 	if err != nil {
 		_ = os.Remove(storagePath)
-		return err
+		return emptyFileResponse, err
 	}
 
-	return nil
+	return file, nil
 
 }
 
@@ -130,5 +142,135 @@ func (serv *Services) DeleteFile(userID uint, fileID uint) error {
 	}
 
 	return serv.repo.DeleteFileByIDAndUserID(fileID, userID)
+
+}
+
+func (serv *Services) CreateFolder(userID uint, parentID *uint, name string) (dto.FolderResponse, error) {
+
+	if parentID != nil {
+		err := serv.repo.CheckFolderExists(userID, *parentID)
+
+		if err != nil {
+			return dto.FolderResponse{}, err
+		}
+	}
+
+	input := dto.CreateFolderInput{
+		UserID:   userID,
+		ParentID: parentID,
+		Name:     name,
+	}
+
+	return serv.repo.CreateFolder(input)
+
+}
+
+func (serv *Services) GetFolderContent(userID uint, folderID *uint) (dto.FolderContentResponse, error) {
+
+	var currentFolder *dto.FolderResponse
+
+	breadcrumbs := []dto.BreadcrumbItem{
+		{ID: nil, Name: "My files"},
+	}
+
+	if folderID != nil {
+		err := serv.repo.CheckFolderExists(userID, *folderID)
+
+		if err != nil {
+			return dto.FolderContentResponse{}, err
+		}
+
+		currentFolder, err = serv.repo.GetFolderByIDAndUserID(*folderID, userID)
+
+		if err != nil {
+			return dto.FolderContentResponse{}, err
+		}
+
+		breadcrumbsArray, err := serv.repo.GetBreadcrumbs(userID, *folderID)
+
+		if err != nil {
+			return dto.FolderContentResponse{}, err
+		}
+
+		breadcrumbs = append(breadcrumbs, breadcrumbsArray...)
+
+	}
+
+	files, err := serv.GetFiles(userID, folderID)
+
+	if err != nil {
+		return dto.FolderContentResponse{}, err
+	}
+
+	folders, err := serv.repo.GetFoldersByParentID(userID, folderID)
+
+	if err != nil {
+		return dto.FolderContentResponse{}, err
+	}
+
+	return dto.FolderContentResponse{
+		Status:        "success",
+		CurrentFolder: currentFolder,
+		Breadcrumbs:   breadcrumbs,
+		Files:         files,
+		Folders:       folders,
+	}, nil
+
+}
+
+func (serv *Services) UpdateFolderName(userID uint, folderID uint, newName string) (dto.FolderResponse, error) {
+
+	err := serv.repo.CheckFolderExists(userID, folderID)
+
+	if err != nil {
+		return dto.FolderResponse{}, err
+	}
+
+	return serv.repo.UpdateFolderName(userID, folderID, newName)
+
+}
+
+func (serv *Services) DeleteFolder(userID uint, folderID uint) error {
+
+	err := serv.repo.CheckFolderExists(userID, folderID)
+
+	if err != nil {
+		return err
+	}
+
+	folderIDs, err := serv.repo.GetFolderTreeIDs(userID, folderID)
+
+	if err != nil {
+		return err
+	}
+
+	files, err := serv.repo.GetFilesByFolderIDs(userID, folderIDs)
+
+	if err != nil {
+		return err
+	}
+
+	err = serv.repo.DeleteFolderTree(userID, folderIDs)
+
+	if err != nil {
+		return err
+	}
+
+	if len(files) > 0 {
+		userDir, err := getUserDir(userID, false)
+
+		if err != nil {
+			return err
+		}
+
+		for _, file := range files {
+			err = deleteFile(userDir, file.StorageName)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 
 }

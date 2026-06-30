@@ -39,4 +39,9 @@ func startRoutingApp(app *fiber.App, h *handler.Handler) {
 	api.Get("/files/:id", h.ReadToken, h.DownloadFile)
 	api.Delete("/files/:id", h.ReadToken, h.DeleteFile)
 
+	api.Post("/folders", h.ReadToken, h.CreateFolder)
+	api.Get("/folders/content", h.ReadToken, h.GetFolderContent)
+	api.Patch("/folders/:id", h.ReadToken, h.UpdateFolder)
+	api.Delete("/folders/:id", h.ReadToken, h.DeleteFolder)
+
 }

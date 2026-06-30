@@ -23,6 +23,7 @@ func main() {
 		&models.User{},
 		&models.RefreshToken{},
 		&models.File{},
+		&models.Folder{},
 	)
 
 	if err != nil {

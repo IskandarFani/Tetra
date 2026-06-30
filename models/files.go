@@ -7,15 +7,26 @@ import (
 )
 
 type File struct {
-	ID     uint `gorm:"primaryKey" json:"id"`
-	UserID uint `gorm:"not null;index" json:"user_id"`
+	ID       uint  `gorm:"primaryKey"`
+	UserID   uint  `gorm:"not null;index"`
+	FolderID *uint `gorm:"index"`
 
-	OriginalName string `gorm:"not null" json:"original_name"`
-	StorageName  string `gorm:"not null;uniqueIndex" json:"-"`
-	MimeType     string `gorm:"not null" json:"mime_type"`
-	Size         int64  `gorm:"not null" json:"size"`
+	OriginalName string `gorm:"not null;size:255"`
+	StorageName  string `gorm:"not null;size:255"`
+	MimeType     string `gorm:"size:255"`
+	Size         int64  `gorm:"not null"`
 
-	CreatedAt time.Time      `json:"created_at"`
-	UpdatedAt time.Time      `json:"-"`
-	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	DeletedAt gorm.DeletedAt `gorm:"index"`
+}
+
+type Folder struct {
+	ID        uint   `gorm:"primaryKey"`
+	UserID    uint   `gorm:"not null;index"`
+	ParentID  *uint  `gorm:"index"`
+	Name      string `gorm:"not null;size:255"`
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	DeletedAt gorm.DeletedAt `gorm:"index"`
 }
