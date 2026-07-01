@@ -144,6 +144,7 @@ func (repo *Repository) GetFoldersByParentID(userID uint, parentID *uint) ([]dto
 
 	folders := []*models.Folder{}
 	foldersArray := []dto.FolderResponse{}
+	folderIDs := []uint{}
 
 	if parentID == nil {
 		err := repo.db.Where("parent_id IS NULL AND user_id = ?", userID).Find(&folders).Error
@@ -158,15 +159,80 @@ func (repo *Repository) GetFoldersByParentID(userID uint, parentID *uint) ([]dto
 	}
 
 	for _, row := range folders {
+		folderIDs = append(folderIDs, row.ID)
+	}
+
+	previewFilesByFolderID, err := repo.GetFolderPreviewFiles(userID, folderIDs, 4)
+
+	if err != nil {
+		return nil, err
+	}
+
+	for _, row := range folders {
 		foldersArray = append(foldersArray, dto.FolderResponse{
-			ID:        row.ID,
-			Name:      row.Name,
-			ParentID:  row.ParentID,
-			CreatedAt: row.CreatedAt,
+			ID:           row.ID,
+			Name:         row.Name,
+			ParentID:     row.ParentID,
+			CreatedAt:    row.CreatedAt,
+			PreviewFiles: previewFilesByFolderID[row.ID],
 		})
 	}
 
 	return foldersArray, nil
+}
+
+func (repo *Repository) GetFolderPreviewFiles(userID uint, folderIDs []uint, limit int) (map[uint][]dto.FileResponse, error) {
+
+	previewFilesByFolderID := map[uint][]dto.FileResponse{}
+
+	if len(folderIDs) == 0 {
+		return previewFilesByFolderID, nil
+	}
+
+	if limit <= 0 {
+		limit = 4
+	}
+
+	files := []models.File{}
+
+	err := repo.db.Raw(`
+		SELECT *
+		FROM (
+			SELECT
+				files.*,
+				ROW_NUMBER() OVER (
+					PARTITION BY folder_id
+					ORDER BY
+						CASE WHEN mime_type LIKE 'image/%' THEN 0 ELSE 1 END,
+						created_at DESC
+				) AS row_number
+			FROM files
+			WHERE user_id = ? AND folder_id IN ?
+		) ranked_files
+		WHERE row_number <= ?
+		ORDER BY folder_id, row_number
+	`, userID, folderIDs, limit).Scan(&files).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	for _, file := range files {
+		if file.FolderID == nil {
+			continue
+		}
+
+		previewFilesByFolderID[*file.FolderID] = append(previewFilesByFolderID[*file.FolderID], dto.FileResponse{
+			ID:           file.ID,
+			OriginalName: file.OriginalName,
+			MimeType:     file.MimeType,
+			Size:         file.Size,
+			CreatedAt:    file.CreatedAt,
+			FolderID:     file.FolderID,
+		})
+	}
+
+	return previewFilesByFolderID, nil
 }
 
 func (repo *Repository) GetBreadcrumbs(userID uint, folderID uint) ([]dto.BreadcrumbItem, error) {
