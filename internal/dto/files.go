@@ -21,6 +21,15 @@ type UpdateFolderRequest struct {
 	Name string `json:"name"`
 }
 
+type UpdateFileRequest struct {
+	FolderID *uint `json:"folder_id"`
+}
+
+type UpdateFileResponse struct {
+	Status string       `json:"status"`
+	File   FileResponse `json:"file"`
+}
+
 type FolderResponse struct {
 	ID        uint      `json:"id"`
 	Name      string    `json:"name"`
@@ -44,6 +53,7 @@ type FileResponse struct {
 	MimeType     string    `json:"mime_type"`
 	Size         int64     `json:"size"`
 	CreatedAt    time.Time `json:"created_at"`
+	FolderID     *uint     `json:"folder_id"`
 }
 
 type BreadcrumbItem struct {

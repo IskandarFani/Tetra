@@ -48,6 +48,7 @@ func (repo *Repository) CreateFile(params dto.CreateFileInput) (dto.FileResponse
 		MimeType:     file.MimeType,
 		Size:         file.Size,
 		CreatedAt:    file.CreatedAt,
+		FolderID:     file.FolderID,
 	}, nil
 
 }
@@ -93,6 +94,14 @@ func (repo *Repository) CheckFolderExists(userID uint, folderID uint) error {
 	folder := &models.Folder{}
 
 	return repo.db.Where("user_id = ? AND id = ?", userID, folderID).First(folder).Error
+
+}
+
+func (repo *Repository) CheckFileExists(userID uint, fileID uint) error {
+
+	file := &models.File{}
+
+	return repo.db.Where("user_id = ? AND id = ?", userID, fileID).First(file).Error
 
 }
 
@@ -296,4 +305,33 @@ func (repo *Repository) DeleteFolderTree(userID uint, folderIDs []uint) error {
 
 		return nil
 	})
+}
+
+func (repo *Repository) UpdateFileFolder(userID uint, fileID uint, folderID *uint) (dto.FileResponse, error) {
+
+	file := &models.File{}
+
+	err := repo.db.Where("user_id = ? AND id = ?", userID, fileID).First(file).Error
+
+	if err != nil {
+		return dto.FileResponse{}, err
+	}
+
+	file.FolderID = folderID
+
+	err = repo.db.Save(file).Error
+
+	if err != nil {
+		return dto.FileResponse{}, err
+	}
+
+	return dto.FileResponse{
+		ID:           file.ID,
+		OriginalName: file.OriginalName,
+		MimeType:     file.MimeType,
+		Size:         file.Size,
+		CreatedAt:    file.CreatedAt,
+		FolderID:     file.FolderID,
+	}, nil
+
 }

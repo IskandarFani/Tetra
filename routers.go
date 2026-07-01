@@ -13,7 +13,7 @@ func startRoutingApp(app *fiber.App, h *handler.Handler) {
 
 	app.Use(cors.New(cors.Config{
 		AllowOrigins: "http://localhost:5173,http://127.0.0.1:5173",
-		AllowMethods: "GET,POST,PUT,DELETE,OPTIONS",
+		AllowMethods: "GET,POST,PUT,PATCH,DELETE,OPTIONS",
 		AllowHeaders: "Origin,Content-Type,Accept,Authorization",
 	}))
 
@@ -38,6 +38,7 @@ func startRoutingApp(app *fiber.App, h *handler.Handler) {
 	api.Post("/files", h.ReadToken, h.UploadFile)
 	api.Get("/files/:id", h.ReadToken, h.DownloadFile)
 	api.Delete("/files/:id", h.ReadToken, h.DeleteFile)
+	api.Patch("/files/:id", h.ReadToken, h.UpdateFile)
 
 	api.Post("/folders", h.ReadToken, h.CreateFolder)
 	api.Get("/folders/content", h.ReadToken, h.GetFolderContent)

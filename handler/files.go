@@ -271,3 +271,40 @@ func (h *Handler) DeleteFolder(c *fiber.Ctx) error {
 		"status":  "success",
 		"message": "Folder deleted successfully"})
 }
+
+func (h *Handler) UpdateFile(c *fiber.Ctx) error {
+
+	var request dto.UpdateFileRequest
+
+	err := c.BodyParser(&request)
+
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"status":  "error",
+			"message": "Invalid request body"})
+	}
+
+	id := c.Locals("userID").(uint)
+
+	fileID, err := strconv.ParseUint(c.Params("id"), 10, 64)
+
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"status":  "error",
+			"message": "Invalid file ID",
+		})
+	}
+
+	file, err := h.serv.UpdateFile(id, uint(fileID), request.FolderID)
+
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"status":  "error",
+			"message": err.Error()})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":  "success",
+		"message": "File updated successfully",
+		"file":    file})
+}

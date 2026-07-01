@@ -32,6 +32,7 @@ func (serv *Services) GetFiles(userID uint, folderID *uint) ([]dto.FileResponse,
 			MimeType:     file.MimeType,
 			Size:         file.Size,
 			CreatedAt:    file.CreatedAt,
+			FolderID:     file.FolderID,
 		})
 	}
 
@@ -272,5 +273,27 @@ func (serv *Services) DeleteFolder(userID uint, folderID uint) error {
 	}
 
 	return nil
+
+}
+
+func (serv *Services) UpdateFile(userID uint, fileID uint, folderID *uint) (dto.FileResponse, error) {
+
+	if folderID != nil {
+
+		err := serv.repo.CheckFolderExists(userID, *folderID)
+
+		if err != nil {
+			return dto.FileResponse{}, err
+		}
+
+	}
+
+	err := serv.repo.CheckFileExists(userID, fileID)
+
+	if err != nil {
+		return dto.FileResponse{}, err
+	}
+
+	return serv.repo.UpdateFileFolder(userID, fileID, folderID)
 
 }
