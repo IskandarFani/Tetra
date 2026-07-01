@@ -31,11 +31,10 @@ type UpdateFileResponse struct {
 }
 
 type FolderResponse struct {
-	ID           uint           `json:"id"`
-	Name         string         `json:"name"`
-	ParentID     *uint          `json:"parent_id"`
-	CreatedAt    time.Time      `json:"created_at"`
-	PreviewFiles []FileResponse `json:"preview_files"`
+	ID        uint      `json:"id"`
+	Name      string    `json:"name"`
+	ParentID  *uint     `json:"parent_id"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 type CreateFolderRequest struct {
