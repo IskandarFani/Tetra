@@ -141,32 +141,42 @@ func (repo *Repository) GetFolderByIDAndUserID(folderID uint, userID uint) (*dto
 }
 
 func (repo *Repository) GetFoldersByParentID(userID uint, parentID *uint) ([]dto.FolderResponse, error) {
+	folders := []dto.FolderResponse{}
 
-	folders := []*models.Folder{}
-	foldersArray := []dto.FolderResponse{}
+	baseQuery := `
+		SELECT
+			f.id,
+			f.name,
+			f.parent_id,
+			f.created_at,
+			(
+				EXISTS (
+					SELECT 1
+					FROM files
+					WHERE files.user_id = f.user_id
+					  AND files.folder_id = f.id
+					  AND files.deleted_at IS NULL
+				)
+				OR EXISTS (
+					SELECT 1
+					FROM folders child
+					WHERE child.user_id = f.user_id
+					  AND child.parent_id = f.id
+					  AND child.deleted_at IS NULL
+				)
+			) AS has_content
+		FROM folders f
+		WHERE f.user_id = ?
+		  AND f.deleted_at IS NULL
+	`
 
 	if parentID == nil {
-		err := repo.db.Where("parent_id IS NULL AND user_id = ?", userID).Find(&folders).Error
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		err := repo.db.Where("parent_id = ? AND user_id = ?", *parentID, userID).Find(&folders).Error
-		if err != nil {
-			return nil, err
-		}
+		err := repo.db.Raw(baseQuery+` AND f.parent_id IS NULL ORDER BY f.name`, userID).Scan(&folders).Error
+		return folders, err
 	}
 
-	for _, row := range folders {
-		foldersArray = append(foldersArray, dto.FolderResponse{
-			ID:        row.ID,
-			Name:      row.Name,
-			ParentID:  row.ParentID,
-			CreatedAt: row.CreatedAt,
-		})
-	}
-
-	return foldersArray, nil
+	err := repo.db.Raw(baseQuery+` AND f.parent_id = ? ORDER BY f.name`, userID, *parentID).Scan(&folders).Error
+	return folders, err
 }
 
 func (repo *Repository) GetBreadcrumbs(userID uint, folderID uint) ([]dto.BreadcrumbItem, error) {
